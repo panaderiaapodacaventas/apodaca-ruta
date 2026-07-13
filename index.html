@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>APODACA · Venta en Ruta v3</title>
+<title>APODACA · Venta en Ruta v4</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -456,14 +456,16 @@ function enviarLiquidacion(payload){
     return;
   }
   pintarSync('Enviando liquidación…');
-  fetch(u,{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+  // Nota: Google Apps Script no devuelve encabezados CORS, así que el navegador
+  // no puede LEER la respuesta aunque sí llega y se guarda. Se usa 'no-cors':
+  // enviamos a ciegas y si no hay error de red, se asume entregado.
+  fetch(u,{ method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'},
     body:JSON.stringify(payload) })
-  .then(r=>r.text())
   .then(()=>{ pintarSync('✅ Liquidación de '+payload.vendedor+' ('+payload.fecha+') enviada a la hoja central.');
-    alert('✅ Liquidación enviada y guardada en Google Sheets.'); })
+    alert('✅ Liquidación enviada. Verifica en tu Google Sheet que aparezca la fila.'); })
   .catch(()=>{
     const q=pendientes(); q.push(payload); localStorage.setItem(KEY_P,JSON.stringify(q));
-    pintarSync('⚠️ Sin conexión. Liquidación guardada; se puede reenviar cuando haya señal.');
+    pintarSync('⚠️ Sin conexión real. Liquidación guardada; se puede reenviar cuando haya señal.');
     alert('Sin conexión. La liquidación quedó guardada en el teléfono; reenvíala desde la pestaña Carga cuando haya señal.');
   });
 }
@@ -471,11 +473,10 @@ function reintentarPendientes(){
   const q=pendientes();
   if(!q.length) return;
   const p=q[0];
-  fetch(urlSheet(),{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(p) })
-  .then(r=>r.text())
+  fetch(urlSheet(),{ method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(p) })
   .then(()=>{ q.shift(); localStorage.setItem(KEY_P,JSON.stringify(q));
     pintarSync('✅ Enviada 1 pendiente.'); if(q.length) reintentarPendientes(); else pintarSync('✅ Todas las liquidaciones pendientes fueron enviadas.'); })
-  .catch(()=>pintarSync('⚠️ Sigue sin conexión. Intenta más tarde.'));
+  .catch(()=>pintarSync('⚠️ Sigue sin conexión real. Intenta más tarde.'));
 }
 
 /* Regla del pedido:
