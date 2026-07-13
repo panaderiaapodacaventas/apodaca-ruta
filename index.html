@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>APODACA · Venta en Ruta v3</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --tinta:#2B1B10;        /* corteza oscura */
+  --fondo:#F6F1E7;        /* harina */
+  --panel:#FFFFFF;
+  --ladrillo:#9E3B1B;     /* horno de ladrillo */
+  --dorado:#D9A441;       /* costra dorada */
+  --verde:#2F7D46;        /* venta ok */
+  --gris:#8A7E70;
+  --linea:#E5DCCB;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Barlow',Arial,sans-serif;background:var(--fondo);color:var(--tinta);padding-bottom:76px}
+h1,h2,h3,.disp{font-family:'Barlow Condensed','Barlow',sans-serif;letter-spacing:.02em}
+
+/* ---------- Header ---------- */
+header{background:var(--tinta);color:#F6F1E7;padding:14px 16px 12px;position:sticky;top:0;z-index:30}
+header .marca{display:flex;justify-content:space-between;align-items:baseline}
+header h1{font-size:22px;font-weight:700;text-transform:uppercase}
+header h1 span{color:var(--dorado)}
+header .fecha{font-size:12px;color:#C9BBA6}
+.barra-estado{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+.chip{background:rgba(255,255,255,.08);border-radius:8px;padding:6px 4px;text-align:center}
+.chip b{display:block;font-family:'Barlow Condensed';font-size:19px;font-weight:700;color:var(--dorado)}
+.chip small{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:#C9BBA6}
+.chip.ok b{color:#7FD69A}
+
+/* ---------- Tabs ---------- */
+nav{position:fixed;bottom:0;left:0;right:0;background:var(--tinta);display:flex;z-index:40;border-top:2px solid var(--dorado)}
+nav button{flex:1;background:none;border:none;color:#B8A88F;padding:10px 2px 12px;font-family:'Barlow Condensed';font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;cursor:pointer}
+nav button.act{color:var(--dorado)}
+nav button .ic{display:block;font-size:18px;margin-bottom:2px}
+
+main{padding:14px 12px;max-width:640px;margin:0 auto}
+.pantalla{display:none}.pantalla.act{display:block}
+.card{background:var(--panel);border:1px solid var(--linea);border-radius:12px;padding:14px;margin-bottom:12px}
+.card h2{font-size:17px;text-transform:uppercase;color:var(--ladrillo);margin-bottom:10px;border-bottom:2px solid var(--linea);padding-bottom:6px}
+.nota{font-size:12.5px;color:var(--gris);line-height:1.45}
+
+/* ---------- Setup ---------- */
+select,input[type=number],input[type=date]{width:100%;padding:10px;border:1px solid var(--linea);border-radius:8px;font-family:'Barlow';font-size:15px;background:#FDFBF6;color:var(--tinta)}
+label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gris);display:block;margin:10px 0 4px}
+.btn{display:block;width:100%;padding:13px;border:none;border-radius:10px;background:var(--ladrillo);color:#fff;font-family:'Barlow Condensed';font-size:17px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;margin-top:14px}
+.btn.sec{background:none;border:2px solid var(--ladrillo);color:var(--ladrillo)}
+.btn.chico{padding:8px;font-size:14px;margin-top:8px}
+.tabla-carga{width:100%;border-collapse:collapse;font-size:13.5px}
+.tabla-carga th{font-family:'Barlow Condensed';text-transform:uppercase;font-size:12px;color:var(--gris);text-align:left;padding:6px 4px;border-bottom:2px solid var(--linea)}
+.tabla-carga td{padding:5px 4px;border-bottom:1px solid var(--linea)}
+.tabla-carga input{width:58px;padding:6px;text-align:center}
+.tabla-carga .px{color:var(--gris);font-size:12px}
+
+/* ---------- Venta ---------- */
+.grid-venta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pan-btn{position:relative;border:1px solid var(--linea);background:var(--panel);border-radius:12px;padding:12px 6px 10px;text-align:center;cursor:pointer;overflow:hidden;transition:transform .06s}
+.pan-btn:active{transform:scale(.95)}
+.pan-btn .nom{font-family:'Barlow Condensed';font-weight:600;font-size:14.5px;line-height:1.1;display:block}
+.pan-btn .resta{font-family:'Barlow Condensed';font-weight:700;font-size:22px;color:var(--ladrillo);display:block;margin-top:3px}
+.pan-btn .precio{font-size:10.5px;color:var(--gris)}
+.pan-btn .fill{position:absolute;left:0;bottom:0;height:4px;background:var(--dorado);transition:width .25s}
+.pan-btn.agotado{opacity:.38;pointer-events:none}
+.pan-btn.flash{background:#EAF6EE;border-color:var(--verde)}
+.fila-acciones{display:flex;gap:8px;margin-bottom:10px}
+.fila-acciones .btn{margin-top:0;flex:1}
+.log{max-height:220px;overflow-y:auto}
+.log table{width:100%;border-collapse:collapse;font-size:13px}
+.log td{padding:5px 4px;border-bottom:1px solid var(--linea)}
+.log .hora{color:var(--gris);font-variant-numeric:tabular-nums;width:70px}
+.log .imp{text-align:right;font-weight:600;color:var(--verde)}
+
+/* ---------- Resumen / Pedido ---------- */
+.tabla{width:100%;border-collapse:collapse;font-size:13px}
+.tabla th{font-family:'Barlow Condensed';text-transform:uppercase;font-size:11.5px;color:var(--gris);padding:6px 4px;border-bottom:2px solid var(--linea);text-align:right}
+.tabla th:first-child,.tabla td:first-child{text-align:left}
+.tabla td{padding:6px 4px;border-bottom:1px solid var(--linea);text-align:right;font-variant-numeric:tabular-nums}
+.tabla tr.tot td{font-weight:700;border-top:2px solid var(--tinta);border-bottom:none;background:#FBF7EE}
+.tag-agotado{background:var(--verde);color:#fff;font-size:9.5px;padding:1px 5px;border-radius:4px;font-weight:700}
+.tag-sobra{background:var(--dorado);color:var(--tinta);font-size:9.5px;padding:1px 5px;border-radius:4px;font-weight:700}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.kpi{background:var(--panel);border:1px solid var(--linea);border-radius:12px;padding:12px 8px;text-align:center}
+.kpi b{font-family:'Barlow Condensed';font-size:26px;font-weight:700;color:var(--ladrillo);display:block}
+.kpi small{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--gris)}
+.ritmo-barra{display:flex;align-items:flex-end;gap:4px;height:90px;margin-top:8px}
+.ritmo-barra .col{flex:1;background:var(--dorado);border-radius:4px 4px 0 0;position:relative;min-height:3px}
+.ritmo-barra .col span{position:absolute;top:-16px;left:0;right:0;text-align:center;font-size:10px;font-weight:700}
+.ritmo-labels{display:flex;gap:4px;margin-top:4px}
+.ritmo-labels div{flex:1;text-align:center;font-size:9.5px;color:var(--gris)}
+.aviso{background:#FBF3E2;border:1px solid var(--dorado);border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;line-height:1.4}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="marca">
+    <h1>APODACA <span>· Ruta</span></h1>
+    <div class="fecha" id="hFecha">—</div>
+  </div>
+  <div class="barra-estado">
+    <div class="chip"><b id="hVend">—</b><small>Vendedor</small></div>
+    <div class="chip"><b id="hPiezas">0</b><small>Vendidas</small></div>
+    <div class="chip ok"><b id="hImporte">$0</b><small>Importe</small></div>
+    <div class="chip"><b id="hEfi">0%</b><small>Eficiencia</small></div>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ 1. CARGA ============ -->
+<section class="pantalla act" id="p-carga">
+  <div class="card">
+    <h2>Inicio de jornada</h2>
+    <label>Vendedor / Ruta</label>
+    <select id="selVend">
+      <option>Casta</option><option>Josue</option><option>Abdiel</option>
+      <option>Jair</option><option>Tienda</option>
+    </select>
+    <label>Fecha</label>
+    <input type="date" id="selFecha">
+    <p class="nota" style="margin-top:10px">La carga se llena automáticamente con la carga típica del vendedor. Ajusta las piezas si hoy salió diferente y presiona <b>Iniciar jornada</b>.</p>
+  </div>
+  <div class="card">
+    <h2>Conexión a Google Sheets</h2>
+    <label>URL del Web App (Apps Script)</label>
+    <input type="text" id="urlSheet" placeholder="https://script.google.com/macros/s/…/exec"
+      style="width:100%;padding:10px;border:1px solid var(--linea);border-radius:8px;font-size:12px;background:#FDFBF6">
+    <button class="btn sec chico" onclick="guardarURL()">Guardar conexión</button>
+    <p class="nota" style="margin-top:8px" id="estadoSync">Sin configurar. Las liquidaciones se guardan en el teléfono y se envían cuando haya conexión.</p>
+    <button class="btn chico" id="btnPend" style="display:none" onclick="reintentarPendientes()">📤 Reenviar liquidaciones pendientes</button>
+  </div>
+  <div class="card">
+    <h2>Carga del día</h2>
+    <table class="tabla-carga">
+      <thead><tr><th>Producto</th><th class="px">$</th><th>Piezas</th></tr></thead>
+      <tbody id="tbCarga"></tbody>
+    </table>
+    <button class="btn" onclick="iniciarJornada()">Iniciar jornada</button>
+    <button class="btn sec chico" onclick="borrarJornada()">Borrar jornada actual</button>
+  </div>
+</section>
+
+<!-- ============ 2. VENTA ============ -->
+<section class="pantalla" id="p-venta">
+  <div class="fila-acciones">
+    <button class="btn sec chico" style="margin-top:0" onclick="deshacer()">↩ Deshacer última</button>
+    <div id="gpsEstado" style="flex:1;align-self:center;font-size:11.5px;color:var(--gris);text-align:right">GPS inactivo</div>
+  </div>
+  <div class="grid-venta" id="gridVenta"></div>
+  <div class="card" style="margin-top:12px">
+    <h2>Últimas ventas</h2>
+    <div class="log"><table><tbody id="tbLog"></tbody></table></div>
+  </div>
+</section>
+
+<!-- ============ 3. RESUMEN ============ -->
+<section class="pantalla" id="p-resumen">
+  <div class="kpis">
+    <div class="kpi"><b id="kPiezas">0</b><small>Piezas vendidas</small></div>
+    <div class="kpi"><b id="kImporte">$0</b><small>Importe total</small></div>
+    <div class="kpi"><b id="kRitmo">0</b><small>Piezas / hora</small></div>
+  </div>
+  <div class="card">
+    <h2>Ritmo por hora</h2>
+    <div class="ritmo-barra" id="ritmoBarra"></div>
+    <div class="ritmo-labels" id="ritmoLabels"></div>
+    <p class="nota" style="margin-top:10px">Cada barra son las piezas vendidas en esa hora. Te dice en qué tramo de la ruta se vende más.</p>
+  </div>
+  <div class="card">
+    <h2>Detalle por producto</h2>
+    <table class="tabla">
+      <thead><tr><th>Producto</th><th>Carga</th><th>Vend.</th><th>Sobra</th><th>$</th></tr></thead>
+      <tbody id="tbResumen"></tbody>
+    </table>
+    <button class="btn chico" onclick="cerrarJornada()">Cerrar jornada y guardar historial</button>
+  </div>
+</section>
+
+<!-- ============ 4. PEDIDO ============ -->
+<section class="pantalla" id="p-pedido">
+  <div class="aviso" id="avisoPedido">El pedido sugerido compara la venta de <b>hoy</b> contra el <b>mismo día de la semana pasada</b>. Si un pan se agotó, sugiere subir la carga; si sobró mucho, sugiere bajarla.</div>
+  <div class="card">
+    <h2>Pedido sugerido — <span id="pedDia">—</span></h2>
+    <table class="tabla">
+      <thead><tr><th>Producto</th><th>Hoy</th><th>Sem. ant.</th><th>Sugerido</th></tr></thead>
+      <tbody id="tbPedido"></tbody>
+    </table>
+    <button class="btn chico" onclick="copiarPedido()">📋 Copiar pedido (WhatsApp)</button>
+  </div>
+</section>
+
+<!-- ============ 5. MAPA ============ -->
+<section class="pantalla" id="p-mapa">
+  <div class="card">
+    <h2>Mapa de calor · Hoy</h2>
+    <p class="nota" id="mapaInfo">Las ventas con ubicación GPS aparecen aquí como zonas de calor.</p>
+    <div id="mapaHoy" style="height:380px;border-radius:10px;margin-top:10px;background:#EAE3D3"></div>
+    <button class="btn sec chico" onclick="pintarMapa()">🔄 Actualizar mapa</button>
+    <p class="nota" style="margin-top:8px">Para el mapa de calor <b>semanal y mensual de todos los vendedores</b>, usa el archivo <b>Mapa_Calor_APODACA.html</b> conectado a tu Google Sheet.</p>
+  </div>
+</section>
+
+</main>
+
+<nav>
+  <button class="act" onclick="tab('carga',this)"><span class="ic">🧺</span>Carga</button>
+  <button onclick="tab('venta',this)"><span class="ic">🥖</span>Venta</button>
+  <button onclick="tab('resumen',this)"><span class="ic">📊</span>Resumen</button>
+  <button onclick="tab('pedido',this)"><span class="ic">📝</span>Pedido</button>
+  <button onclick="tab('mapa',this)"><span class="ic">🗺️</span>Mapa</button>
+</nav>
+
+<script>
+/* ================= CATÁLOGO Y CARGAS TÍPICAS =================
+   Cargas por vendedor tomadas de la hoja real: Casta, Josue, Abdiel, Jair, Tienda */
+const CAT = [
+ // [nombre, precio, Casta, Josue, Abdiel, Jair, Tienda]
+ ["Conchas B",15,5,5,5,5,0], ["Conchas CH",15,5,5,5,5,0], ["Picón",15,5,4,5,5,0],
+ ["Revolcada",15,5,5,5,5,7], ["Lengua canela",15,4,6,4,2,0], ["Lengua piña",15,4,6,4,2,0],
+ ["Lengua fresa",15,0,0,0,0,0], ["Lengua leche",15,4,6,4,2,0], ["Semitas",15,4,4,3,2,7],
+ ["Negros",15,4,5,5,2,0], ["Barras",15,3,3,3,2,0], ["Manitas piña",15,3,3,3,3,7],
+ ["Manitas fresa",15,0,0,0,0,0], ["Trenzas cajeta",15,3,3,3,3,0], ["Trenza leche",15,0,0,0,0,0],
+ ["Rol",16,5,5,5,2,7], ["Novia",15,4,4,4,2,7], ["Cuernitos",15,4,4,4,2,0],
+ ["Bigotes",15,3,3,2,2,0], ["Emp. piña",15,2,2,2,2,0], ["Emp. cajeta",15,2,2,2,2,0],
+ ["Emp. fresa",15,2,2,2,2,0], ["Elotes",15,3,3,3,3,0], ["Leños",15,5,4,4,2,7],
+ ["Girasoles",15,4,4,4,2,0], ["Cruces",15,4,4,4,2,0], ["Arepas",15,5,5,5,5,0],
+ ["Bisquet",15,3,3,3,3,0], ["Polvorones",15,7,7,7,2,7], ["Chinos nuez",15,5,5,5,5,7],
+ ["Chino coco",15,0,0,0,0,0], ["Chino naranja",15,5,5,5,5,0], ["Orejas",15,0,0,0,0,0],
+ ["Conos",15,10,10,10,5,7], ["Cañas",15,5,5,5,3,0], ["Aguadulce",15,4,4,4,2,0],
+ ["Emp. crema",15,2,2,2,2,0], ["Dona azúcar",15,5,5,5,5,0], ["Dona CH",15,5,5,5,5,0],
+ ["Cremita",15,5,5,5,5,0], ["Canelón",15,5,5,5,5,7], ["Quesos",15,10,10,10,5,0],
+ ["Bolillo",12,0,0,0,0,35], ["Telera normal",8,0,0,0,0,70], ["Telera ajonjolí",8,0,0,0,0,40],
+ ["Telera mediana",8,0,0,0,0,30], ["Telera extra",8,0,0,0,0,20], ["Telera ext. ajonjolí",8,0,0,0,0,30],
+ ["Sándwiches",20,0,0,0,0,25], ["Hot dog brioche",6,0,0,0,0,40], ["Hamb. brioche",6,0,0,0,0,20],
+ ["Hamb. normal",8,0,0,0,0,0]
+];
+const VEND_IDX = {Casta:2, Josue:3, Abdiel:4, Jair:5, Tienda:6};
+const DIAS = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+
+/* ================= ESTADO ================= */
+let J = null; // jornada actual
+const KEY_J = 'apodaca_jornada';
+const KEY_H = 'apodaca_historial'; // { "Vendedor|diaSemana": {fecha, ventas:{producto:n}, cargas:{...}} }
+
+function hoyISO(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function guardar(){ localStorage.setItem(KEY_J, JSON.stringify(J)); }
+function cargarGuardado(){ const s=localStorage.getItem(KEY_J); if(s){ try{J=JSON.parse(s);}catch(e){J=null;} } }
+function historial(){ try{return JSON.parse(localStorage.getItem(KEY_H)||'{}');}catch(e){return{}} }
+
+/* ================= SETUP ================= */
+function pintarCarga(){
+  const v = document.getElementById('selVend').value;
+  const idx = VEND_IDX[v];
+  const tb = document.getElementById('tbCarga'); tb.innerHTML='';
+  CAT.forEach((p,i)=>{
+    const def = p[idx];
+    tb.insertAdjacentHTML('beforeend',
+      `<tr><td>${p[0]}</td><td class="px">$${p[1]}</td>
+       <td><input type="number" min="0" id="c${i}" value="${def}"></td></tr>`);
+  });
+}
+function iniciarJornada(){
+  const v = document.getElementById('selVend').value;
+  const f = document.getElementById('selFecha').value || hoyISO();
+  const cargas = {};
+  CAT.forEach((p,i)=>{ const n=parseInt(document.getElementById('c'+i).value)||0; if(n>0) cargas[p[0]]=n; });
+  if(Object.keys(cargas).length===0){ alert('Captura al menos un producto con carga.'); return; }
+  J = { vendedor:v, fecha:f, inicio:Date.now(), cargas, eventos:[] };
+  guardar(); iniciarGPS(); pintarTodo(); tab('venta', document.querySelectorAll('nav button')[1]);
+}
+function borrarJornada(){
+  if(J && !confirm('¿Borrar la jornada actual? Se pierden las ventas registradas.')) return;
+  J=null; localStorage.removeItem(KEY_J); pintarTodo();
+}
+
+/* ================= VENTA ================= */
+function vendidosPor(prod){ return J ? J.eventos.filter(e=>e.p===prod).length : 0; }
+function precioDe(prod){ const c=CAT.find(x=>x[0]===prod); return c?c[1]:0; }
+
+function pintarVenta(){
+  const g = document.getElementById('gridVenta'); g.innerHTML='';
+  if(!J){ g.innerHTML='<p class="nota">Inicia la jornada en la pestaña Carga.</p>'; pintarLog(); return; }
+  Object.keys(J.cargas).forEach(prod=>{
+    const carga=J.cargas[prod], vend=vendidosPor(prod), resta=carga-vend;
+    const pct = carga? (vend/carga*100):0;
+    g.insertAdjacentHTML('beforeend',
+     `<div class="pan-btn ${resta<=0?'agotado':''}" id="pb-${cssId(prod)}" onclick="venta('${prod.replace(/'/g,"\\'")}')">
+        <span class="nom">${prod}</span>
+        <span class="resta">${resta}</span>
+        <span class="precio">$${precioDe(prod)} · vend ${vend}</span>
+        <span class="fill" style="width:${pct}%"></span>
+      </div>`);
+  });
+  pintarLog();
+}
+function cssId(s){ return s.replace(/[^a-z0-9]/gi,'_'); }
+
+/* ================= GPS ================= */
+let GPS={lat:null,lng:null,acc:null,t:0}, gpsWatch=null;
+function setGPSEstado(msg,ok){
+  const e=document.getElementById('gpsEstado');
+  if(e){ e.textContent=msg; e.style.color= ok? 'var(--verde)':'var(--gris)'; }
+}
+function iniciarGPS(){
+  if(!('geolocation' in navigator)){ setGPSEstado('Este dispositivo no tiene GPS'); return; }
+  if(gpsWatch!=null) return;
+  gpsWatch = navigator.geolocation.watchPosition(
+    pos=>{ GPS={lat:+pos.coords.latitude.toFixed(6), lng:+pos.coords.longitude.toFixed(6),
+                acc:Math.round(pos.coords.accuracy), t:Date.now()};
+           setGPSEstado('📍 GPS activo · ±'+GPS.acc+' m', true); },
+    err=>{ setGPSEstado('⚠️ GPS sin permiso o sin señal — las ventas se registran igual'); },
+    {enableHighAccuracy:true, maximumAge:15000, timeout:20000});
+}
+function coordsActuales(){
+  // usa la última posición si tiene menos de 2 min de antigüedad
+  if(GPS.lat!=null && (Date.now()-GPS.t)<120000) return {lat:GPS.lat, lng:GPS.lng, acc:GPS.acc};
+  return {lat:null, lng:null, acc:null};
+}
+
+function venta(prod){
+  if(!J) return;
+  const carga=J.cargas[prod]||0;
+  if(vendidosPor(prod)>=carga) return;
+  const g=coordsActuales();
+  J.eventos.push({p:prod, t:Date.now(), lat:g.lat, lng:g.lng, acc:g.acc});
+  guardar();
+  const el=document.getElementById('pb-'+cssId(prod));
+  if(el){ el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),250); }
+  pintarTodo(false);
+}
+function deshacer(){
+  if(!J || !J.eventos.length) return;
+  const e=J.eventos.pop(); guardar(); pintarTodo(false);
+}
+function pintarLog(){
+  const tb=document.getElementById('tbLog'); tb.innerHTML='';
+  if(!J) return;
+  J.eventos.slice(-25).reverse().forEach(e=>{
+    tb.insertAdjacentHTML('beforeend',
+     `<tr><td class="hora">${new Date(e.t).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${e.p}</td><td class="imp">$${precioDe(e.p)}</td></tr>`);
+  });
+}
+
+/* ================= MÉTRICAS ================= */
+function totales(){
+  if(!J) return {piezas:0,importe:0,carga:0,efi:0,ritmo:0};
+  const piezas=J.eventos.length;
+  const importe=J.eventos.reduce((s,e)=>s+precioDe(e.p),0);
+  const carga=Object.values(J.cargas).reduce((a,b)=>a+b,0);
+  const efi=carga? piezas/carga*100:0;
+  const horas=Math.max((Date.now()-J.inicio)/3600000, 1/60);
+  return {piezas,importe,carga,efi,ritmo:piezas/horas};
+}
+function pintarHeader(){
+  const t=totales();
+  document.getElementById('hVend').textContent = J? J.vendedor:'—';
+  document.getElementById('hFecha').textContent = J? `${DIAS[new Date(J.fecha+'T12:00').getDay()]} ${J.fecha}` : new Date().toLocaleDateString('es-MX');
+  document.getElementById('hPiezas').textContent = t.piezas;
+  document.getElementById('hImporte').textContent = '$'+t.importe.toLocaleString('es-MX');
+  document.getElementById('hEfi').textContent = t.efi.toFixed(0)+'%';
+}
+function pintarResumen(){
+  const t=totales();
+  document.getElementById('kPiezas').textContent=t.piezas;
+  document.getElementById('kImporte').textContent='$'+t.importe.toLocaleString('es-MX');
+  document.getElementById('kRitmo').textContent=t.ritmo.toFixed(1);
+  // ritmo por hora
+  const barra=document.getElementById('ritmoBarra'), labels=document.getElementById('ritmoLabels');
+  barra.innerHTML=''; labels.innerHTML='';
+  if(J && J.eventos.length){
+    const porHora={};
+    J.eventos.forEach(e=>{ const h=new Date(e.t).getHours(); porHora[h]=(porHora[h]||0)+1; });
+    const horas=Object.keys(porHora).map(Number).sort((a,b)=>a-b);
+    const max=Math.max(...Object.values(porHora));
+    horas.forEach(h=>{
+      barra.insertAdjacentHTML('beforeend',`<div class="col" style="height:${porHora[h]/max*100}%"><span>${porHora[h]}</span></div>`);
+      labels.insertAdjacentHTML('beforeend',`<div>${h}:00</div>`);
+    });
+  }
+  // tabla
+  const tb=document.getElementById('tbResumen'); tb.innerHTML='';
+  if(!J) return;
+  let tc=0,tv=0,ts=0,ti=0;
+  Object.keys(J.cargas).forEach(prod=>{
+    const c=J.cargas[prod], v=vendidosPor(prod), s=c-v, imp=v*precioDe(prod);
+    tc+=c; tv+=v; ts+=s; ti+=imp;
+    const tag = s===0 ? ' <span class="tag-agotado">AGOTADO</span>' : (c>0 && s/c>=0.4 ? ' <span class="tag-sobra">SOBRA</span>':'');
+    tb.insertAdjacentHTML('beforeend',
+      `<tr><td>${prod}${tag}</td><td>${c}</td><td>${v}</td><td>${s}</td><td>$${imp}</td></tr>`);
+  });
+  tb.insertAdjacentHTML('beforeend',
+    `<tr class="tot"><td>TOTAL</td><td>${tc}</td><td>${tv}</td><td>${ts}</td><td>$${ti.toLocaleString('es-MX')}</td></tr>`);
+}
+
+/* ================= HISTORIAL Y PEDIDO ================= */
+function claveHist(vend, fecha){ return vend+'|'+new Date(fecha+'T12:00').getDay(); }
+
+function cerrarJornada(){
+  if(!J){ alert('No hay jornada activa.'); return; }
+  if(!confirm('¿Cerrar la jornada y enviar la liquidación a la hoja central?')) return;
+  const h=historial();
+  const ventas={};
+  Object.keys(J.cargas).forEach(p=>{ ventas[p]=vendidosPor(p); });
+  h[claveHist(J.vendedor,J.fecha)] = { fecha:J.fecha, ventas, cargas:{...J.cargas} };
+  localStorage.setItem(KEY_H, JSON.stringify(h));
+  enviarLiquidacion(payloadLiquidacion());
+  pintarPedido();
+}
+
+/* ============ SINCRONIZACIÓN CON GOOGLE SHEETS ============ */
+const KEY_URL='apodaca_url_sheet', KEY_P='apodaca_pendientes';
+function urlSheet(){ return localStorage.getItem(KEY_URL)||''; }
+function guardarURL(){
+  const u=document.getElementById('urlSheet').value.trim();
+  localStorage.setItem(KEY_URL,u);
+  pintarSync(u?'✅ Conexión guardada. Las liquidaciones se enviarán a tu hoja.':'Sin configurar.');
+}
+function pendientes(){ try{return JSON.parse(localStorage.getItem(KEY_P)||'[]');}catch(e){return[]} }
+function pintarSync(msg){
+  const e=document.getElementById('estadoSync'); if(msg) e.textContent=msg;
+  const n=pendientes().length, b=document.getElementById('btnPend');
+  b.style.display = n? 'block':'none';
+  if(n) b.textContent='📤 Reenviar '+n+' liquidación(es) pendiente(s)';
+}
+function payloadLiquidacion(){
+  const t=totales();
+  const detalle = Object.keys(J.cargas).map(prod=>{
+    const c=J.cargas[prod], v=vendidosPor(prod);
+    return { producto:prod, carga:c, vendido:v, sobrante:c-v, precio:precioDe(prod), importe:v*precioDe(prod) };
+  });
+  const eventos = J.eventos.map(e=>({
+    hora:new Date(e.t).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+    producto:e.p, precio:precioDe(e.p),
+    lat:(e.lat!=null? e.lat:''), lng:(e.lng!=null? e.lng:''), precision:(e.acc!=null? e.acc:'') }));
+  return {
+    tipo:'liquidacion', fecha:J.fecha, dia:DIAS[new Date(J.fecha+'T12:00').getDay()],
+    vendedor:J.vendedor,
+    horaInicio:new Date(J.inicio).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),
+    horaCierre:new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),
+    piezasVendidas:t.piezas, cargaTotal:t.carga, importe:t.importe,
+    eficiencia:+t.efi.toFixed(1), piezasHora:+t.ritmo.toFixed(1),
+    detalle, eventos
+  };
+}
+function enviarLiquidacion(payload){
+  const u=urlSheet();
+  if(!u){
+    const q=pendientes(); q.push(payload); localStorage.setItem(KEY_P,JSON.stringify(q));
+    pintarSync('⚠️ No hay URL configurada. Liquidación guardada en el teléfono; configúrala y presiona Reenviar.');
+    alert('Jornada guardada en el teléfono. Configura la conexión a Google Sheets para enviarla.');
+    return;
+  }
+  pintarSync('Enviando liquidación…');
+  fetch(u,{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(payload) })
+  .then(r=>r.text())
+  .then(()=>{ pintarSync('✅ Liquidación de '+payload.vendedor+' ('+payload.fecha+') enviada a la hoja central.');
+    alert('✅ Liquidación enviada y guardada en Google Sheets.'); })
+  .catch(()=>{
+    const q=pendientes(); q.push(payload); localStorage.setItem(KEY_P,JSON.stringify(q));
+    pintarSync('⚠️ Sin conexión. Liquidación guardada; se puede reenviar cuando haya señal.');
+    alert('Sin conexión. La liquidación quedó guardada en el teléfono; reenvíala desde la pestaña Carga cuando haya señal.');
+  });
+}
+function reintentarPendientes(){
+  const q=pendientes();
+  if(!q.length) return;
+  const p=q[0];
+  fetch(urlSheet(),{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(p) })
+  .then(r=>r.text())
+  .then(()=>{ q.shift(); localStorage.setItem(KEY_P,JSON.stringify(q));
+    pintarSync('✅ Enviada 1 pendiente.'); if(q.length) reintentarPendientes(); else pintarSync('✅ Todas las liquidaciones pendientes fueron enviadas.'); })
+  .catch(()=>pintarSync('⚠️ Sigue sin conexión. Intenta más tarde.'));
+}
+
+/* Regla del pedido:
+   - base = venta de hoy
+   - si hay referencia de la semana pasada, base = promedio(hoy, semana pasada)
+   - si se AGOTÓ hoy → sugerir +15% (había demanda que no se surtió)
+   - si sobró 40% o más → sugerir bajar al nivel vendido +1
+   - redondeo hacia arriba, mínimo 0 */
+function sugerido(carga, hoy, semAnt){
+  let base = (semAnt!=null) ? (hoy+semAnt)/2 : hoy;
+  const sobra = carga-hoy;
+  if(carga>0 && sobra<=0) base = Math.max(hoy, semAnt||0) * 1.15;
+  else if(carga>0 && sobra/carga>=0.4) base = hoy + 1;
+  return Math.max(0, Math.ceil(base));
+}
+function pintarPedido(){
+  const tb=document.getElementById('tbPedido'); tb.innerHTML='';
+  const dia=document.getElementById('pedDia');
+  if(!J){ dia.textContent='—'; tb.innerHTML='<tr><td colspan="4" class="nota">Inicia una jornada para generar el pedido.</td></tr>'; return; }
+  const d=new Date(J.fecha+'T12:00'); 
+  dia.textContent='próximo '+DIAS[d.getDay()];
+  const ref = historial()[claveHist(J.vendedor,J.fecha)];
+  const refEsHoy = ref && ref.fecha===J.fecha; // si la referencia guardada es de hoy mismo, no sirve como "semana pasada"
+  const semAnt = (ref && !refEsHoy) ? ref.ventas : null;
+  if(!semAnt){
+    document.getElementById('avisoPedido').innerHTML =
+      '⚠️ Aún no hay historial del mismo día de la semana pasada para <b>'+J.vendedor+'</b>. El pedido se basa solo en la venta de hoy. Al <b>cerrar la jornada</b> se guarda y la próxima semana ya habrá comparación.';
+  }
+  Object.keys(J.cargas).forEach(prod=>{
+    const c=J.cargas[prod], v=vendidosPor(prod);
+    const sa = semAnt ? (semAnt[prod]??null) : null;
+    const sug = sugerido(c,v,sa);
+    tb.insertAdjacentHTML('beforeend',
+      `<tr><td>${prod}</td><td>${v}</td><td>${sa==null?'—':sa}</td><td><b>${sug}</b></td></tr>`);
+  });
+}
+function copiarPedido(){
+  if(!J) return;
+  const ref=historial()[claveHist(J.vendedor,J.fecha)];
+  const semAnt=(ref && ref.fecha!==J.fecha)?ref.ventas:null;
+  let txt=`🥖 PEDIDO ${J.vendedor.toUpperCase()} — próximo ${DIAS[new Date(J.fecha+'T12:00').getDay()]}\n`;
+  Object.keys(J.cargas).forEach(prod=>{
+    const sug=sugerido(J.cargas[prod], vendidosPor(prod), semAnt?(semAnt[prod]??null):null);
+    if(sug>0) txt+=`${prod}: ${sug}\n`;
+  });
+  navigator.clipboard.writeText(txt).then(()=>alert('Pedido copiado. Pégalo en WhatsApp.'))
+    .catch(()=>prompt('Copia el pedido:',txt));
+}
+
+/* ================= MAPA DE CALOR (HOY) ================= */
+let leafletListo=false, mapaHoy=null, capaCalor=null;
+function cargarLeaflet(cb){
+  if(leafletListo){ cb(); return; }
+  const css=document.createElement('link'); css.rel='stylesheet';
+  css.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+  document.head.appendChild(css);
+  const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+  s.onload=()=>{ const h=document.createElement('script');
+    h.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js';
+    h.onload=()=>{ leafletListo=true; cb(); };
+    h.onerror=()=>{ document.getElementById('mapaInfo').textContent='No se pudo cargar el mapa (se necesita internet).'; };
+    document.head.appendChild(h); };
+  s.onerror=()=>{ document.getElementById('mapaInfo').textContent='No se pudo cargar el mapa (se necesita internet).'; };
+  document.head.appendChild(s);
+}
+function pintarMapa(){
+  const info=document.getElementById('mapaInfo');
+  const pts = J? J.eventos.filter(e=>e.lat!=null).map(e=>[e.lat,e.lng,0.8]):[];
+  const sinGPS = J? J.eventos.length-pts.length : 0;
+  if(!J){ info.textContent='Inicia una jornada para ver el mapa.'; return; }
+  if(!pts.length){ info.textContent='Aún no hay ventas con ubicación GPS hoy.'; return; }
+  info.textContent=pts.length+' venta(s) con ubicación'+(sinGPS? ' · '+sinGPS+' sin GPS':'')+'.';
+  cargarLeaflet(()=>{
+    if(!mapaHoy){
+      mapaHoy=L.map('mapaHoy');
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {attribution:'© OpenStreetMap', maxZoom:19}).addTo(mapaHoy);
+    }
+    if(capaCalor) mapaHoy.removeLayer(capaCalor);
+    capaCalor=L.heatLayer(pts,{radius:30,blur:20,maxZoom:17}).addTo(mapaHoy);
+    mapaHoy.fitBounds(L.latLngBounds(pts.map(p=>[p[0],p[1]])).pad(0.3));
+    setTimeout(()=>mapaHoy.invalidateSize(),200);
+  });
+}
+
+/* ================= NAV ================= */
+function tab(id,btn){
+  document.querySelectorAll('.pantalla').forEach(p=>p.classList.remove('act'));
+  document.getElementById('p-'+id).classList.add('act');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('act'));
+  btn.classList.add('act');
+  pintarTodo(false);
+  if(id==='mapa') pintarMapa();
+}
+function pintarTodo(reCarga=true){
+  if(reCarga) pintarCarga();
+  pintarHeader(); pintarVenta(); pintarResumen(); pintarPedido();
+}
+
+/* ================= INIT ================= */
+document.getElementById('selFecha').value=hoyISO();
+document.getElementById('selVend').addEventListener('change',pintarCarga);
+cargarGuardado();
+document.getElementById('urlSheet').value = urlSheet();
+pintarSync(urlSheet()?'✅ Conectado a Google Sheets.':'');
+pintarTodo();
+if(J){ document.getElementById('selVend').value=J.vendedor; document.getElementById('selFecha').value=J.fecha; iniciarGPS(); }
+setInterval(()=>{ pintarHeader(); },60000); // refresca ritmo/eficiencia cada minuto
+</script>
+</body>
+</html>
