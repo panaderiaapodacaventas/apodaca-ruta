@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APODACA · Mapa de Calor de Ventas</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{--tinta:#2B1B10;--fondo:#F6F1E7;--panel:#fff;--ladrillo:#9E3B1B;--dorado:#D9A441;--verde:#2F7D46;--gris:#8A7E70;--linea:#E5DCCB}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Barlow',Arial,sans-serif;background:var(--fondo);color:var(--tinta)}
+h1,h2{font-family:'Barlow Condensed';letter-spacing:.02em}
+header{background:var(--tinta);color:#F6F1E7;padding:16px 20px}
+header h1{font-size:24px;text-transform:uppercase}
+header h1 span{color:var(--dorado)}
+header p{font-size:12px;color:#C9BBA6;margin-top:2px}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.card{background:var(--panel);border:1px solid var(--linea);border-radius:12px;padding:16px;margin-bottom:14px}
+.card h2{font-size:17px;text-transform:uppercase;color:var(--ladrillo);margin-bottom:10px}
+.controles{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end}
+@media(max-width:760px){.controles{grid-template-columns:1fr 1fr}.controles .campo-url{grid-column:1/-1}}
+label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gris);display:block;margin-bottom:4px}
+input,select{width:100%;padding:10px;border:1px solid var(--linea);border-radius:8px;font-family:'Barlow';font-size:14px;background:#FDFBF6}
+button{padding:11px 18px;border:none;border-radius:8px;background:var(--ladrillo);color:#fff;font-family:'Barlow Condensed';font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;cursor:pointer}
+.estado{font-size:12.5px;color:var(--gris);margin-top:8px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--panel);border:1px solid var(--linea);border-radius:12px;padding:14px;text-align:center}
+.kpi b{font-family:'Barlow Condensed';font-size:30px;font-weight:700;color:var(--ladrillo);display:block}
+.kpi small{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--gris)}
+#mapa{height:520px;border-radius:12px;border:1px solid var(--linea)}
+.tabla{width:100%;border-collapse:collapse;font-size:13.5px}
+.tabla th{font-family:'Barlow Condensed';text-transform:uppercase;font-size:11.5px;color:var(--gris);padding:6px;border-bottom:2px solid var(--linea);text-align:right}
+.tabla th:first-child,.tabla td:first-child{text-align:left}
+.tabla td{padding:6px;border-bottom:1px solid var(--linea);text-align:right;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>APODACA <span>· Mapa de Calor de Ventas</span></h1>
+  <p>Zonas donde se concentra la venta en ruta — semanal y mensual, todos los vendedores</p>
+</header>
+
+<main>
+  <div class="card">
+    <div class="controles">
+      <div class="campo-url">
+        <label>URL del Web App (la misma /exec de la app)</label>
+        <input type="text" id="url" placeholder="https://script.google.com/macros/s/…/exec">
+      </div>
+      <div>
+        <label>Periodo</label>
+        <select id="periodo">
+          <option value="7">Semana (7 días)</option>
+          <option value="31">Mes (31 días)</option>
+          <option value="92">Trimestre (92 días)</option>
+        </select>
+      </div>
+      <div>
+        <label>Vendedor</label>
+        <select id="vendedor">
+          <option value="">Todos</option>
+          <option>Casta</option><option>Josue</option><option>Abdiel</option>
+          <option>Jair</option><option>Tienda</option>
+        </select>
+      </div>
+      <button onclick="cargar()">Cargar</button>
+    </div>
+    <p class="estado" id="estado">Pega la URL de tu Apps Script y presiona Cargar.</p>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><b id="kVentas">—</b><small>Ventas con GPS</small></div>
+    <div class="kpi"><b id="kImporte">—</b><small>Importe ubicado $</small></div>
+    <div class="kpi"><b id="kDias">—</b><small>Días con actividad</small></div>
+    <div class="kpi"><b id="kSinGPS">—</b><small>Ventas sin GPS</small></div>
+  </div>
+
+  <div class="card">
+    <h2>Mapa de calor</h2>
+    <div id="mapa"></div>
+  </div>
+
+  <div class="card">
+    <h2>Resumen por vendedor (ventas ubicadas)</h2>
+    <table class="tabla">
+      <thead><tr><th>Vendedor</th><th>Ventas con GPS</th><th>Importe $</th><th>% con GPS</th></tr></thead>
+      <tbody id="tbVend"></tbody>
+    </table>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+<script>
+const KEY='apodaca_url_sheet';
+document.getElementById('url').value = localStorage.getItem(KEY)||'';
+
+// Mapa base centrado en Mazatlán mientras llegan datos
+let mapa = L.map('mapa').setView([23.2494,-106.4111], 12);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {attribution:'© OpenStreetMap', maxZoom:19}).addTo(mapa);
+let capa=null;
+
+function cargar(){
+  const u=document.getElementById('url').value.trim();
+  if(!u){ estado('Falta la URL del Web App.'); return; }
+  localStorage.setItem(KEY,u);
+  const dias=document.getElementById('periodo').value;
+  const vend=document.getElementById('vendedor').value;
+  estado('Consultando la hoja…');
+  let q = u+'?accion=eventos&dias='+dias;
+  if(vend) q += '&vendedor='+encodeURIComponent(vend);
+  fetch(q)
+   .then(r=>r.json())
+   .then(pintar)
+   .catch(e=>estado('⚠️ No se pudo leer la hoja. Verifica la URL y que la implementación tenga acceso "Cualquier persona". ('+e+')'));
+}
+
+function estado(m){ document.getElementById('estado').textContent=m; }
+function num(n){ return Number(n)||0; }
+
+function pintar(datos){
+  if(!Array.isArray(datos)){ estado('Respuesta inesperada de la hoja: '+JSON.stringify(datos).slice(0,120)); return; }
+  const conGPS = datos.filter(d=>d.lat!=='' && d.lat!=null && d.lng!=='' && d.lng!=null);
+  const sinGPS = datos.length - conGPS.length;
+
+  // KPIs
+  document.getElementById('kVentas').textContent = conGPS.length;
+  document.getElementById('kImporte').textContent = '$'+conGPS.reduce((s,d)=>s+num(d.precio),0).toLocaleString('es-MX');
+  document.getElementById('kDias').textContent = new Set(datos.map(d=>d.fecha)).size;
+  document.getElementById('kSinGPS').textContent = sinGPS;
+
+  // Tabla por vendedor
+  const porV={};
+  datos.forEach(d=>{
+    porV[d.vendedor]=porV[d.vendedor]||{gps:0,tot:0,imp:0};
+    porV[d.vendedor].tot++;
+    if(d.lat!=='' && d.lat!=null){ porV[d.vendedor].gps++; porV[d.vendedor].imp+=num(d.precio); }
+  });
+  const tb=document.getElementById('tbVend'); tb.innerHTML='';
+  Object.keys(porV).sort().forEach(v=>{
+    const x=porV[v];
+    tb.insertAdjacentHTML('beforeend',
+      `<tr><td>${v}</td><td>${x.gps}</td><td>$${x.imp.toLocaleString('es-MX')}</td><td>${x.tot? (x.gps/x.tot*100).toFixed(0):0}%</td></tr>`);
+  });
+
+  // Heat map — el peso de cada punto es su precio (los panes caros pesan más)
+  if(capa) mapa.removeLayer(capa);
+  if(!conGPS.length){ estado('Se leyeron '+datos.length+' ventas pero ninguna trae GPS todavía.'); return; }
+  const maxP = Math.max(...conGPS.map(d=>num(d.precio)),1);
+  const pts = conGPS.map(d=>[Number(d.lat), Number(d.lng), 0.3 + 0.7*(num(d.precio)/maxP)]);
+  capa = L.heatLayer(pts,{radius:26,blur:18,maxZoom:17}).addTo(mapa);
+  mapa.fitBounds(L.latLngBounds(pts.map(p=>[p[0],p[1]])).pad(0.2));
+  estado('✅ '+conGPS.length+' ventas ubicadas en el periodo seleccionado.');
+}
+</script>
+</body>
+</html>
