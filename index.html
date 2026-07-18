@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>APODACA · Venta en Ruta v9</title>
+<title>APODACA · Venta en Ruta v11</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -71,12 +71,12 @@ label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05
 .cat-bar span{display:block;height:100%;background:var(--dorado)}
 
 /* ---------- Venta ---------- */
-.grid-venta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.grid-venta{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 .pan-btn{position:relative;border:1px solid var(--linea);background:var(--panel);border-radius:12px;padding:12px 6px 10px;text-align:center;cursor:pointer;overflow:hidden;transition:transform .06s}
 .pan-btn:active{transform:scale(.95)}
-.pan-btn .nom{font-family:'Barlow Condensed';font-weight:600;font-size:14.5px;line-height:1.1;display:block}
+.pan-btn .nom{font-family:'Barlow Condensed';font-weight:600;font-size:13.5px;line-height:1.15;display:block;overflow-wrap:break-word;word-break:break-word;hyphens:auto}
 .pan-btn .resta{font-family:'Barlow Condensed';font-weight:700;font-size:22px;color:var(--ladrillo);display:block;margin-top:3px}
-.pan-btn .precio{font-size:10.5px;color:var(--gris)}
+.pan-btn .precio{font-size:10.5px;color:var(--gris);overflow-wrap:break-word;word-break:break-word}
 .pan-btn .fill{position:absolute;left:0;bottom:0;height:4px;background:var(--dorado);transition:width .25s}
 .pan-btn.flash{background:#EAF6EE;border-color:var(--verde)}
 .fila-acciones{display:flex;gap:8px;margin-bottom:10px}
@@ -386,7 +386,7 @@ function pintarVenta(){
        `<div class="pan-btn" id="pb-${cssId(prod)}" onclick="venta('${prod.replace(/'/g,"\\'")}')">
           <span class="nom">${prod}</span>
           <span class="resta">${vp}</span>
-          <span class="precio">$${precioDe(prod)} · vendidos</span>
+          <span class="precio">$${precioDe(prod)} · vend.</span>
         </div>`);
     });
   });
