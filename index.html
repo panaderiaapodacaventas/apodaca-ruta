@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>APODACA · Venta en Ruta v12</title>
+<title>APODACA · Venta en Ruta v13</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -572,27 +572,83 @@ function enviarLiquidacion(payload){
     return;
   }
   pintarSync('Enviando liquidación…');
-  // Nota: Google Apps Script no devuelve encabezados CORS, así que el navegador
-  // no puede LEER la respuesta aunque sí llega y se guarda. Se usa 'no-cors':
-  // enviamos a ciegas y si no hay error de red, se asume entregado.
+  // Google Apps Script no devuelve encabezados CORS, así que el navegador no
+  // puede LEER la respuesta de un POST aunque sí llegue. Se manda 'a ciegas'
+  // con 'no-cors' y, en vez de confiar en que "salió" sin más, se confirma
+  // de verdad preguntándole a la hoja (vía JSONP, que sí se puede leer).
   fetch(u,{ method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'},
     body:JSON.stringify(payload) })
-  .then(()=>{ pintarSync('✅ Liquidación de '+payload.vendedor+' ('+payload.fecha+') enviada a la hoja central.');
-    alert('✅ Liquidación enviada. Verifica en tu Google Sheet que aparezca la fila.'); })
+  .then(()=>{ pintarSync('Verificando que haya llegado a Google Sheets…');
+    setTimeout(()=>confirmarEnvio(payload,0), 1500); })
   .catch(()=>{
     const q=pendientes(); q.push(payload); localStorage.setItem(KEY_P,JSON.stringify(q));
     pintarSync('⚠️ Sin conexión real. Liquidación guardada; se puede reenviar cuando haya señal.');
     alert('Sin conexión. La liquidación quedó guardada en el teléfono; reenvíala desde la pestaña Carga cuando haya señal.');
   });
 }
+/* Pregunta a la hoja (JSONP, sin bloqueo de CORS) si esta liquidación
+   específica (fecha+vendedor+hora de cierre) ya quedó registrada.
+   Reintenta un par de veces por si la hoja tarda un segundo en reflejarlo. */
+function confirmarEnvio(payload, intento){
+  const u=urlSheet();
+  const cbName='apodacaConfirm_'+Date.now()+'_'+intento;
+  const script=document.createElement('script');
+  const tope=setTimeout(()=>{ limpiar(); manejarSinConfirmar(payload, intento); }, 7000);
+  function limpiar(){ clearTimeout(tope); delete window[cbName]; if(script.parentNode) script.parentNode.removeChild(script); }
+  window[cbName]=function(res){
+    limpiar();
+    if(res && res.encontrado){
+      pintarSync('✅ Liquidación de '+payload.vendedor+' ('+payload.fecha+') confirmada en Google Sheets.');
+      alert('✅ Confirmado: la liquidación de '+payload.vendedor+' ya está guardada en tu Google Sheet.');
+    } else {
+      manejarSinConfirmar(payload, intento);
+    }
+  };
+  script.src = u+'?accion=confirmar&fecha='+encodeURIComponent(payload.fecha)
+    +'&vendedor='+encodeURIComponent(payload.vendedor)
+    +'&horaCierre='+encodeURIComponent(payload.horaCierre)
+    +'&callback='+cbName;
+  script.onerror=()=>{ limpiar(); manejarSinConfirmar(payload, intento); };
+  document.body.appendChild(script);
+}
+function manejarSinConfirmar(payload, intento){
+  if(intento<2){ pintarSync('Sin confirmar aún, reintentando…'); setTimeout(()=>confirmarEnvio(payload, intento+1), 2500); return; }
+  const q=pendientes(); q.push(payload); localStorage.setItem(KEY_P,JSON.stringify(q));
+  pintarSync('⚠️ No se pudo confirmar en Google Sheets. Se guardó en el teléfono — usa "Reenviar pendientes".');
+  alert('⚠️ No logramos confirmar que la liquidación llegó a tu Google Sheet. Se guardó en el teléfono como pendiente; revisa tu conexión y usa "Reenviar liquidaciones pendientes" en la pestaña Carga.');
+}
 function reintentarPendientes(){
   const q=pendientes();
   if(!q.length) return;
   const p=q[0];
+  pintarSync('Reenviando 1 liquidación pendiente…');
   fetch(urlSheet(),{ method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(p) })
-  .then(()=>{ q.shift(); localStorage.setItem(KEY_P,JSON.stringify(q));
-    pintarSync('✅ Enviada 1 pendiente.'); if(q.length) reintentarPendientes(); else pintarSync('✅ Todas las liquidaciones pendientes fueron enviadas.'); })
+  .then(()=>{ setTimeout(()=>confirmarReenvio(p,0), 1500); })
   .catch(()=>pintarSync('⚠️ Sigue sin conexión real. Intenta más tarde.'));
+}
+function confirmarReenvio(payload, intento){
+  const u=urlSheet();
+  const cbName='apodacaConfirmR_'+Date.now()+'_'+intento;
+  const script=document.createElement('script');
+  const tope=setTimeout(()=>{ limpiar(); manejarSinConfirmarReenvio(payload, intento); }, 7000);
+  function limpiar(){ clearTimeout(tope); delete window[cbName]; if(script.parentNode) script.parentNode.removeChild(script); }
+  window[cbName]=function(res){
+    limpiar();
+    if(res && res.encontrado){
+      const q=pendientes(); q.shift(); localStorage.setItem(KEY_P,JSON.stringify(q));
+      pintarSync('✅ Confirmada 1 pendiente.'); if(q.length) reintentarPendientes(); else pintarSync('✅ Todas las liquidaciones pendientes fueron confirmadas.');
+    } else { manejarSinConfirmarReenvio(payload, intento); }
+  };
+  script.src = u+'?accion=confirmar&fecha='+encodeURIComponent(payload.fecha)
+    +'&vendedor='+encodeURIComponent(payload.vendedor)
+    +'&horaCierre='+encodeURIComponent(payload.horaCierre)
+    +'&callback='+cbName;
+  script.onerror=()=>{ limpiar(); manejarSinConfirmarReenvio(payload, intento); };
+  document.body.appendChild(script);
+}
+function manejarSinConfirmarReenvio(payload, intento){
+  if(intento<2){ setTimeout(()=>confirmarReenvio(payload, intento+1), 2500); return; }
+  pintarSync('⚠️ Sigue sin confirmarse. Intenta más tarde.');
 }
 
 /* Regla del pedido:
