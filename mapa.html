@@ -111,12 +111,37 @@ function cargar(){
   const dias=document.getElementById('periodo').value;
   const vend=document.getElementById('vendedor').value;
   estado('Consultando la hoja…');
-  let q = u+'?accion=eventos&dias='+dias;
+
+  // JSONP: Apps Script no permite que el navegador LEA una respuesta fetch
+  // entre sitios distintos (CORS). Cargar la URL como <script> sí funciona,
+  // porque los scripts no están sujetos a esa restricción.
+  const cbName = 'apodacaCB_' + Date.now();
+  const script = document.createElement('script');
+  const timeout = setTimeout(()=>{
+    estado('⚠️ Sin respuesta de la hoja (tardó demasiado). Verifica la URL y que la implementación tenga acceso "Cualquier persona".');
+    limpiar();
+  }, 15000);
+
+  function limpiar(){
+    clearTimeout(timeout);
+    delete window[cbName];
+    if(script.parentNode) script.parentNode.removeChild(script);
+  }
+
+  window[cbName] = function(datos){
+    limpiar();
+    if(datos && datos.ok===false){ estado('⚠️ '+datos.error); return; }
+    pintar(datos);
+  };
+
+  let q = u+'?accion=eventos&dias='+dias+'&callback='+cbName;
   if(vend) q += '&vendedor='+encodeURIComponent(vend);
-  fetch(q)
-   .then(r=>r.json())
-   .then(pintar)
-   .catch(e=>estado('⚠️ No se pudo leer la hoja. Verifica la URL y que la implementación tenga acceso "Cualquier persona". ('+e+')'));
+  script.src = q;
+  script.onerror = function(){
+    estado('⚠️ No se pudo leer la hoja. Verifica la URL y que la implementación tenga acceso "Cualquier persona".');
+    limpiar();
+  };
+  document.body.appendChild(script);
 }
 
 function estado(m){ document.getElementById('estado').textContent=m; }
