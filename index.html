@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>APODACA · Venta en Ruta v13</title>
+<title>APODACA · Venta en Ruta v15</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -143,6 +143,8 @@ label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05
     <button class="btn sec chico" onclick="guardarURL()">Guardar conexión</button>
     <p class="nota" style="margin-top:8px" id="estadoSync">Sin configurar. Las liquidaciones se guardan en el teléfono y se envían cuando haya conexión.</p>
     <button class="btn chico" id="btnPend" style="display:none" onclick="reintentarPendientes()">📤 Reenviar liquidaciones pendientes</button>
+    <button class="btn sec chico" onclick="probarConexionVisible()">🔧 Probar conexión (abre pestaña nueva)</button>
+    <p class="nota" style="margin-top:6px">Este botón es solo para diagnóstico: abre en una pestaña nueva exactamente lo que contesta el servidor, para revisar si dice "guardada" (funcionó) o el mensaje genérico de "Receptor activo" (algo se está convirtiendo mal en el camino).</p>
   </div>
   <div class="card">
     <h2>📷 Leer foto de Producción</h2>
@@ -572,23 +574,44 @@ function enviarLiquidacion(payload){
     return;
   }
   pintarSync('Enviando liquidación…');
-  // Google Apps Script no devuelve encabezados CORS, así que el navegador no
-  // puede LEER la respuesta de un POST aunque sí llegue. Se manda 'a ciegas'
-  // con 'no-cors' y, en vez de confiar en que "salió" sin más, se confirma
-  // de verdad preguntándole a la hoja (vía JSONP, que sí se puede leer).
-  fetch(u,{ method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify(payload) })
-  .then(()=>{ pintarSync('Verificando que haya llegado a Google Sheets…');
-    setTimeout(()=>confirmarEnvio(payload,0), 1500); })
-  .catch(()=>{
-    const q=pendientes(); q.push(payload); localStorage.setItem(KEY_P,JSON.stringify(q));
-    pintarSync('⚠️ Sin conexión real. Liquidación guardada; se puede reenviar cuando haya señal.');
-    alert('Sin conexión. La liquidación quedó guardada en el teléfono; reenvíala desde la pestaña Carga cuando haya señal.');
+  enviarPorFormulario(u, payload, ()=>{
+    pintarSync('Verificando que haya llegado a Google Sheets…');
+    setTimeout(()=>confirmarEnvio(payload,0), 1500);
   });
 }
-/* Pregunta a la hoja (JSONP, sin bloqueo de CORS) si esta liquidación
-   específica (fecha+vendedor+hora de cierre) ya quedó registrada.
-   Reintenta un par de veces por si la hoja tarda un segundo en reflejarlo. */
+/* Envía el payload como un formulario oculto (no como fetch/AJAX).
+   Los formularios HTML no están sujetos a las restricciones de CORS que
+   bloqueaban la entrega — es la forma clásica y más confiable de mandar
+   datos a Google Apps Script desde otro sitio. No se puede leer la
+   respuesta (por eso después se confirma aparte contra la hoja). */
+function enviarPorFormulario(url, payload, onDone){
+  try{
+    const nombre='apodacaFrame_'+Date.now();
+    const iframe=document.createElement('iframe');
+    iframe.name=nombre; iframe.style.display='none';
+    document.body.appendChild(iframe);
+    const form=document.createElement('form');
+    form.method='POST'; form.action=url; form.target=nombre; form.style.display='none';
+    const input=document.createElement('input');
+    input.type='hidden'; input.name='payload'; input.value=JSON.stringify(payload);
+    form.appendChild(input);
+    document.body.appendChild(form);
+    let listo=false;
+    function terminar(){
+      if(listo) return; listo=true;
+      setTimeout(()=>{ form.remove(); iframe.remove(); }, 500);
+      onDone();
+    }
+    iframe.onload=terminar;
+    form.submit();
+    setTimeout(terminar, 4000); // respaldo por si el evento onload no dispara
+  }catch(err){
+    onDone(); // seguimos al paso de confirmación de todos modos
+  }
+}
+/* Pregunta a la hoja (JSONP, sin bloqueo de CORS) si ya hay una liquidación
+   de este vendedor guardada recientemente. Reintenta un par de veces por
+   si la hoja tarda un segundo en reflejarlo. */
 function confirmarEnvio(payload, intento){
   const u=urlSheet();
   const cbName='apodacaConfirm_'+Date.now()+'_'+intento;
@@ -605,9 +628,7 @@ function confirmarEnvio(payload, intento){
     }
   };
   script.src = u+'?accion=confirmar&fecha='+encodeURIComponent(payload.fecha)
-    +'&vendedor='+encodeURIComponent(payload.vendedor)
-    +'&horaCierre='+encodeURIComponent(payload.horaCierre)
-    +'&callback='+cbName;
+    +'&vendedor='+encodeURIComponent(payload.vendedor)+'&callback='+cbName;
   script.onerror=()=>{ limpiar(); manejarSinConfirmar(payload, intento); };
   document.body.appendChild(script);
 }
@@ -622,9 +643,7 @@ function reintentarPendientes(){
   if(!q.length) return;
   const p=q[0];
   pintarSync('Reenviando 1 liquidación pendiente…');
-  fetch(urlSheet(),{ method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(p) })
-  .then(()=>{ setTimeout(()=>confirmarReenvio(p,0), 1500); })
-  .catch(()=>pintarSync('⚠️ Sigue sin conexión real. Intenta más tarde.'));
+  enviarPorFormulario(urlSheet(), p, ()=>{ setTimeout(()=>confirmarReenvio(p,0), 1500); });
 }
 function confirmarReenvio(payload, intento){
   const u=urlSheet();
@@ -640,9 +659,7 @@ function confirmarReenvio(payload, intento){
     } else { manejarSinConfirmarReenvio(payload, intento); }
   };
   script.src = u+'?accion=confirmar&fecha='+encodeURIComponent(payload.fecha)
-    +'&vendedor='+encodeURIComponent(payload.vendedor)
-    +'&horaCierre='+encodeURIComponent(payload.horaCierre)
-    +'&callback='+cbName;
+    +'&vendedor='+encodeURIComponent(payload.vendedor)+'&callback='+cbName;
   script.onerror=()=>{ limpiar(); manejarSinConfirmarReenvio(payload, intento); };
   document.body.appendChild(script);
 }
@@ -651,6 +668,34 @@ function manejarSinConfirmarReenvio(payload, intento){
   pintarSync('⚠️ Sigue sin confirmarse. Intenta más tarde.');
 }
 
+/* Diagnóstico temporal: manda un formulario de prueba visible (pestaña
+   nueva, no oculto) para poder LEER a simple vista qué contesta el
+   servidor — si dice "guardada" (doPost sí corrió) o el mensaje genérico
+   de "Receptor activo" (algo convirtió el envío en una simple lectura). */
+function probarConexionVisible(){
+  const u=urlSheet();
+  if(!u){ alert('Primero guarda la URL de conexión.'); return; }
+  const pruebaPayload = {
+    tipo:'liquidacion', fecha:hoyISO(), dia:DIAS[new Date().getDay()], vendedor:'DIAGNOSTICO',
+    horaInicio:'00:00', horaCierre:'00:00', piezasVendidas:0, cargaTotal:0, importe:0,
+    eficiencia:0, piezasHora:0,
+    entradas:{dulceNuevo:0, sandwichNuevo:0, bolilloNuevo:0, recuperado:0},
+    grupos:[
+      {clave:'dulce', grupo:'🍞 Pan dulce', carga:0, vendido:0, sobrante:0, eficiencia:0},
+      {clave:'bolillo', grupo:'🥖 Bolillo', carga:0, vendido:0, sobrante:0, eficiencia:0},
+      {clave:'sandwich', grupo:'🥪 Sándwiches', carga:0, vendido:0, sobrante:0, eficiencia:0}
+    ],
+    detalle:[], eventos:[]
+  };
+  const form=document.createElement('form');
+  form.method='POST'; form.action=u; form.target='_blank';
+  const input=document.createElement('input');
+  input.type='hidden'; input.name='payload'; input.value=JSON.stringify(pruebaPayload);
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
+  setTimeout(()=>form.remove(), 1000);
+}
 /* Regla del pedido:
    - base = venta de hoy
    - si hay referencia de la semana pasada, base = promedio(hoy, semana pasada)
